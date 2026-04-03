@@ -43,9 +43,9 @@ export default async function Home({ searchParams }: PageProps) {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900">
+          <Link href="/" className="text-lg font-bold text-gray-900 hover:text-blue-600 transition-colors">
             Taiwanese Plates
-          </h1>
+          </Link>
           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
             匯率 1 JPY = {rate.toFixed(4)} TWD
           </span>
