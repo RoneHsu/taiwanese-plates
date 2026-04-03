@@ -98,7 +98,7 @@ export default async function ProductPage({ params }: Props) {
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-700">🇯🇵 日本售價</span>
                 <div className="text-right">
-                  <p className="font-bold text-lg">¥{product.jp_price_jpy.toLocaleString()}</p>
+                  <p className="font-bold text-lg text-gray-900">¥{product.jp_price_jpy.toLocaleString()}</p>
                   <p className="text-xs text-gray-400">
                     ≈ NT${product.jp_price_twd.toLocaleString()}（匯率 {rateRes.rate.toFixed(4)}）
                   </p>
@@ -107,7 +107,7 @@ export default async function ProductPage({ params }: Props) {
 
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-700">🇹🇼 台灣售價</span>
-                <p className="font-bold text-lg">NT${product.tw_price_twd.toLocaleString()}</p>
+                <p className="font-bold text-lg text-gray-900">NT${product.tw_price_twd.toLocaleString()}</p>
               </div>
 
               <div className={`flex justify-between items-center py-2 rounded-lg px-3 ${
