@@ -28,6 +28,10 @@ async def fetch_rate(from_currency: str = "JPY", to_currency: str = "TWD") -> fl
 
 
 async def save_rate(conn: asyncpg.Connection, from_currency: str, to_currency: str, rate: float):
+    # Sync sequence in case rows were imported with explicit IDs
+    await conn.execute("""
+        SELECT setval('exchange_rates_id_seq', COALESCE((SELECT MAX(id) FROM exchange_rates), 0))
+    """)
     await conn.execute("""
         INSERT INTO exchange_rates (from_currency, to_currency, rate)
         VALUES ($1, $2, $3)
