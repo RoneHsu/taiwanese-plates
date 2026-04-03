@@ -1,5 +1,6 @@
 import asyncpg
 import os
+import ssl
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -7,8 +8,17 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
+def _get_ssl():
+    if os.getenv("DATABASE_SSL", "false").lower() == "true":
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+    return None
+
+
 async def get_connection():
-    return await asyncpg.connect(DATABASE_URL)
+    return await asyncpg.connect(DATABASE_URL, ssl=_get_ssl())
 
 
 async def init_db():

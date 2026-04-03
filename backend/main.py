@@ -7,6 +7,7 @@ Endpoints:
 """
 
 import os
+import ssl
 import asyncpg
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,12 +33,23 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-    app.state.pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+    use_ssl = os.getenv("DATABASE_SSL", "false").lower() == "true"
+    ssl_ctx = None
+    if use_ssl:
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+    app.state.pool = await asyncpg.create_pool(DATABASE_URL, ssl=ssl_ctx, min_size=2, max_size=10)
 
 
 @app.on_event("shutdown")
 async def shutdown():
     await app.state.pool.close()
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 
 # --- Helpers ---
