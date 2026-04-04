@@ -127,10 +127,7 @@ async def list_products(
         rate = await get_latest_rate(conn)
 
         # Build WHERE clause
-        conditions = [
-            "jp.region = 'JP'",
-            "tw.region = 'TW'",
-        ]
+        conditions = []
         params = []
 
         if q:
@@ -141,7 +138,7 @@ async def list_products(
             params.append(category)
             conditions.append(f"p.category = ${len(params)}")
 
-        where = "WHERE " + " AND ".join(conditions)
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
         # Sort
         order_map = {
@@ -160,7 +157,7 @@ async def list_products(
         offset_param = len(params)
 
         rows = await conn.fetch(f"""
-            SELECT DISTINCT ON (p.id)
+            SELECT
                 p.id,
                 p.uniqlo_product_id,
                 p.name_jp,
@@ -172,10 +169,17 @@ async def list_products(
                 jp.price AS price_jpy,
                 tw.price AS price_twd
             FROM products p
-            JOIN prices jp ON jp.product_id = p.id AND jp.region = 'JP'
-            JOIN prices tw ON tw.product_id = p.id AND tw.region = 'TW'
+            JOIN LATERAL (
+                SELECT price FROM prices
+                WHERE product_id = p.id AND region = 'JP'
+                ORDER BY scraped_at DESC LIMIT 1
+            ) jp ON true
+            JOIN LATERAL (
+                SELECT price FROM prices
+                WHERE product_id = p.id AND region = 'TW'
+                ORDER BY scraped_at DESC LIMIT 1
+            ) tw ON true
             {where}
-            ORDER BY p.id, jp.scraped_at DESC, tw.scraped_at DESC
         """, *params[:-2])
 
         # Count total for pagination
@@ -228,7 +232,7 @@ async def get_product(product_id: int):
         rate = await get_latest_rate(conn)
 
         row = await conn.fetchrow("""
-            SELECT DISTINCT ON (p.id)
+            SELECT
                 p.id,
                 p.uniqlo_product_id,
                 p.name_jp,
@@ -240,10 +244,17 @@ async def get_product(product_id: int):
                 jp.price AS price_jpy,
                 tw.price AS price_twd
             FROM products p
-            JOIN prices jp ON jp.product_id = p.id AND jp.region = 'JP'
-            JOIN prices tw ON tw.product_id = p.id AND tw.region = 'TW'
+            JOIN LATERAL (
+                SELECT price FROM prices
+                WHERE product_id = p.id AND region = 'JP'
+                ORDER BY scraped_at DESC LIMIT 1
+            ) jp ON true
+            JOIN LATERAL (
+                SELECT price FROM prices
+                WHERE product_id = p.id AND region = 'TW'
+                ORDER BY scraped_at DESC LIMIT 1
+            ) tw ON true
             WHERE p.id = $1
-            ORDER BY p.id, jp.scraped_at DESC, tw.scraped_at DESC
         """, product_id)
 
     if not row:
