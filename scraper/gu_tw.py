@@ -87,11 +87,14 @@ def normalize_gu_tw(item: dict, gender: str) -> dict:
     else:
         sizes = None
 
+    name_tw = item.get("productName", "")
+    category = _classify_gender(name_tw, gender)
+
     return {
         "brand": "gu",
         "uniqlo_product_id": product_id,
-        "name_tw": item.get("productName", ""),
-        "category": gender,
+        "name_tw": name_tw,
+        "category": category,
         "image_url": image_url,
         "colors": colors,
         "sizes": sizes,
@@ -99,6 +102,17 @@ def normalize_gu_tw(item: dict, gender: str) -> dict:
         "price": price,
         "currency": "TWD",
     }
+
+
+def _classify_gender(name: str, default: str) -> str:
+    """Infer gender category from product name."""
+    if "男女" in name or "unisex" in name.lower():
+        return "unisex"
+    if name.startswith("女裝"):
+        return "women"
+    if name.startswith("男裝"):
+        return "men"
+    return default
 
 
 def _parse_colors(style_text) -> str | None:

@@ -17,13 +17,13 @@ const BRANDS = [
   { value: "gu", label: "GU" },
 ]
 
-const CATEGORIES = [
-  { value: "", label: "全部" },
-  { value: "men", label: "男裝" },
-  { value: "women", label: "女裝" },
-  { value: "unisex", label: "男女適穿" },
-  { value: "kids", label: "童裝" },
-  { value: "baby", label: "嬰兒" },
+const ALL_CATEGORIES = [
+  { value: "", label: "全部", brands: ["", "uniqlo", "gu"] },
+  { value: "men", label: "男裝", brands: ["", "uniqlo", "gu"] },
+  { value: "women", label: "女裝", brands: ["", "uniqlo", "gu"] },
+  { value: "unisex", label: "男女適穿", brands: ["", "uniqlo", "gu"] },
+  { value: "kids", label: "童裝", brands: ["", "uniqlo", "gu"] },
+  { value: "baby", label: "嬰兒", brands: ["", "uniqlo"] },
 ]
 
 interface PageProps {
@@ -88,7 +88,7 @@ export default async function Home({ searchParams }: PageProps) {
         {/* Category + Sort filters */}
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <div className="flex gap-1 flex-wrap">
-            {CATEGORIES.map((cat) => {
+            {ALL_CATEGORIES.filter(cat => cat.brands.includes(params.brand || "")).map((cat) => {
               const active = (params.category || "") === cat.value
               const href = buildHref(params, { category: cat.value, offset: "0" })
               return (
