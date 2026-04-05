@@ -102,18 +102,30 @@ def normalize_gu_tw(item: dict, gender: str) -> dict:
 
 
 def _parse_colors(style_text) -> str | None:
-    """Parse styleText list → '01:OFF WHITE/09:BLACK'"""
+    """Parse styleText list → '01:OFF WHITE/09:BLACK'
+
+    GU TW styleText may be in two formats:
+      - '09 BLACK'           (standard: code=09, name=BLACK)
+      - '357680 / 09 BLACK'  (product_id / code name — extract code+name after '/')
+    """
     if not style_text:
         return None
     try:
         if isinstance(style_text, str):
             style_text = ast.literal_eval(style_text)
         pairs = []
+        seen_codes = set()
         for s in style_text:
+            s = s.strip()
+            # Format: "357680 / 09 BLACK" — take everything after '/'
+            if " / " in s:
+                s = s.split(" / ", 1)[1].strip()
+            # Now expect "09 BLACK"
             if " " in s:
                 code, name = s.split(" ", 1)
                 name = name.strip()
-                if name:
+                if name and code not in seen_codes:
+                    seen_codes.add(code)
                     pairs.append(f"{code}:{name}")
         return "/".join(pairs) if pairs else None
     except Exception:

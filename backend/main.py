@@ -63,14 +63,30 @@ async def get_latest_rate(conn) -> float:
 
 
 def parse_colors(colors_str: str | None) -> list[dict] | None:
-    """Parse '01:OFF WHITE/09:BLACK' → [{'code':'01','name':'OFF WHITE'}, ...]"""
+    """Parse '01:OFF WHITE/09:BLACK' → [{'code':'01','name':'OFF WHITE'}, ...]
+    Also handles legacy GU TW format '357680:/ 09 BLACK' where the product ID
+    bled into the code field — extracts the actual color code after '/'.
+    """
     if not colors_str:
         return None
     result = []
+    seen = set()
     for pair in colors_str.split("/"):
-        if ":" in pair:
-            code, name = pair.split(":", 1)
-            result.append({"code": code.strip(), "name": name.strip()})
+        if ":" not in pair:
+            continue
+        code, name = pair.split(":", 1)
+        code = code.strip()
+        name = name.strip()
+        # Legacy GU TW: code contains product_id, name starts with "/ NN COLOR"
+        if name.startswith("/ ") and " " in name[2:]:
+            rest = name[2:].strip()  # "09 BLACK"
+            parts = rest.split(" ", 1)
+            if len(parts) == 2:
+                code = parts[0]
+                name = parts[1]
+        if code and name and code not in seen:
+            seen.add(code)
+            result.append({"code": code, "name": name})
     return result if result else None
 
 
