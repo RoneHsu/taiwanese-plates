@@ -11,6 +11,12 @@ const SORT_OPTIONS = [
   { value: "price_tw",  label: "台灣價格↑" },
 ]
 
+const BRANDS = [
+  { value: "", label: "全部品牌" },
+  { value: "uniqlo", label: "UNIQLO" },
+  { value: "gu", label: "GU" },
+]
+
 const CATEGORIES = [
   { value: "", label: "全部" },
   { value: "men", label: "男裝" },
@@ -21,7 +27,7 @@ const CATEGORIES = [
 ]
 
 interface PageProps {
-  searchParams: Promise<{ q?: string; category?: string; sort?: string; offset?: string }>
+  searchParams: Promise<{ q?: string; brand?: string; category?: string; sort?: string; offset?: string }>
 }
 
 export default async function Home({ searchParams }: PageProps) {
@@ -31,7 +37,7 @@ export default async function Home({ searchParams }: PageProps) {
   const limit = 24
 
   const [productsRes, rateRes] = await Promise.all([
-    getProducts({ q: params.q, category: params.category, sort, limit, offset }),
+    getProducts({ q: params.q, brand: params.brand, category: params.category, sort, limit, offset }),
     getExchangeRate(),
   ])
 
@@ -58,7 +64,28 @@ export default async function Home({ searchParams }: PageProps) {
           <SearchBar />
         </Suspense>
 
-        {/* Filters */}
+        {/* Brand tabs */}
+        <div className="flex gap-2 border-b border-gray-200 pb-2">
+          {BRANDS.map((b) => {
+            const active = (params.brand || "") === b.value
+            const href = buildHref(params, { brand: b.value, category: "", offset: "0" })
+            return (
+              <Link
+                key={b.value}
+                href={href}
+                className={`px-4 py-1.5 rounded-t text-sm font-semibold transition-colors border-b-2 ${
+                  active
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-800"
+                }`}
+              >
+                {b.label}
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Category + Sort filters */}
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <div className="flex gap-1 flex-wrap">
             {CATEGORIES.map((cat) => {

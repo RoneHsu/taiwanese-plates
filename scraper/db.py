@@ -18,7 +18,7 @@ def _get_ssl():
 
 
 async def get_connection():
-    return await asyncpg.connect(DATABASE_URL, ssl=_get_ssl())
+    return await asyncpg.connect(DATABASE_URL, ssl=_get_ssl(), statement_cache_size=0)
 
 
 async def init_db():
@@ -27,13 +27,17 @@ async def init_db():
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
-                uniqlo_product_id TEXT UNIQUE NOT NULL,
+                brand TEXT NOT NULL DEFAULT 'uniqlo',
+                uniqlo_product_id TEXT NOT NULL,
                 name_jp TEXT,
                 name_tw TEXT,
                 category TEXT,
                 image_url TEXT,
+                colors TEXT,
+                sizes TEXT,
                 created_at TIMESTAMPTZ DEFAULT NOW(),
-                updated_at TIMESTAMPTZ DEFAULT NOW()
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE (brand, uniqlo_product_id)
             )
         """)
 
@@ -58,7 +62,6 @@ async def init_db():
             )
         """)
 
-        # Index for fast product lookup
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_prices_product_id ON prices(product_id);
         """)
@@ -66,6 +69,43 @@ async def init_db():
             CREATE INDEX IF NOT EXISTS idx_prices_scraped_at ON prices(scraped_at);
         """)
 
+        await migrate_db(conn)
+
         print("Database initialized.")
     finally:
         await conn.close()
+
+
+async def migrate_db(conn):
+    """Apply incremental migrations to existing tables."""
+    # Add colors column if missing
+    await conn.execute("""
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS colors TEXT;
+    """)
+    # Add sizes column if missing
+    await conn.execute("""
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS sizes TEXT;
+    """)
+    # Add brand column (DEFAULT 'uniqlo' covers existing rows)
+    await conn.execute("""
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS brand TEXT NOT NULL DEFAULT 'uniqlo';
+    """)
+    # Drop old single-column unique constraint if it exists
+    await conn.execute("""
+        ALTER TABLE products DROP CONSTRAINT IF EXISTS products_uniqlo_product_id_key;
+    """)
+    # Add composite unique constraint if it doesn't exist
+    await conn.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'products_brand_product_id_key'
+            ) THEN
+                ALTER TABLE products
+                ADD CONSTRAINT products_brand_product_id_key
+                UNIQUE (brand, uniqlo_product_id);
+            END IF;
+        END
+        $$;
+    """)

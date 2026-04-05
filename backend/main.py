@@ -96,6 +96,18 @@ def build_comparison(jp_price: int, tw_price: int, rate: float) -> dict:
     }
 
 
+def build_product_urls(brand: str, product_id: str) -> dict:
+    if brand == "gu":
+        return {
+            "jp_url": f"https://www.gu-global.com/jp/ja/products/{product_id}/",
+            "tw_url": f"https://www.gu-global.com/tw/zh_TW/products/{product_id}/",
+        }
+    return {
+        "jp_url": f"https://www.uniqlo.com/jp/ja/products/{product_id}/",
+        "tw_url": f"https://www.uniqlo.com/tw/product-detail.html?productCode={product_id}",
+    }
+
+
 # --- Endpoints ---
 
 @app.get("/api/v1/exchange-rate")
@@ -119,6 +131,7 @@ async def get_exchange_rate():
 async def list_products(
     q: str = Query(None, description="Search by name"),
     category: str = Query(None, description="Filter by category"),
+    brand: str = Query(None, description="Filter by brand: uniqlo | gu"),
     sort: str = Query("diff_desc", description="Sort: diff_desc | diff_asc | price_jp | price_tw"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -138,6 +151,10 @@ async def list_products(
             params.append(category)
             conditions.append(f"p.category = ${len(params)}")
 
+        if brand:
+            params.append(brand)
+            conditions.append(f"p.brand = ${len(params)}")
+
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
         # Sort
@@ -148,17 +165,12 @@ async def list_products(
             "price_tw":  "tw.price ASC",
         }
         order_sql = order_map.get(sort, order_map["diff_desc"])
-
-        # Inject rate as literal (it's a computed float, not user input)
         order_sql = order_sql.replace("$RATE", str(rate))
-
-        params.extend([limit, offset])
-        limit_param = len(params) - 1
-        offset_param = len(params)
 
         rows = await conn.fetch(f"""
             SELECT
                 p.id,
+                p.brand,
                 p.uniqlo_product_id,
                 p.name_jp,
                 p.name_tw,
@@ -180,12 +192,10 @@ async def list_products(
                 ORDER BY scraped_at DESC LIMIT 1
             ) tw ON true
             {where}
-        """, *params[:-2])
+        """, *params)
 
-        # Count total for pagination
         total = len(rows)
 
-        # Apply sort + pagination in Python (simpler for MVP)
         def sort_key(r):
             jp_in_twd = r["price_jpy"] * rate
             diff = r["price_twd"] - jp_in_twd
@@ -195,7 +205,7 @@ async def list_products(
                 return r["price_jpy"]
             elif sort == "price_tw":
                 return r["price_twd"]
-            return -diff  # diff_desc default
+            return -diff
 
         rows = sorted(rows, key=sort_key)
         rows = rows[offset: offset + limit]
@@ -203,8 +213,10 @@ async def list_products(
     products = []
     for r in rows:
         comparison = build_comparison(r["price_jpy"], r["price_twd"], rate)
+        urls = build_product_urls(r["brand"], r["uniqlo_product_id"])
         products.append({
             "id": r["id"],
+            "brand": r["brand"],
             "uniqlo_product_id": r["uniqlo_product_id"],
             "name_jp": r["name_jp"],
             "name_tw": r["name_tw"],
@@ -213,6 +225,7 @@ async def list_products(
             "colors": parse_colors(r["colors"]),
             "sizes": r["sizes"],
             **comparison,
+            **urls,
         })
 
     return {
@@ -234,6 +247,7 @@ async def get_product(product_id: int):
         row = await conn.fetchrow("""
             SELECT
                 p.id,
+                p.brand,
                 p.uniqlo_product_id,
                 p.name_jp,
                 p.name_tw,
@@ -261,8 +275,10 @@ async def get_product(product_id: int):
         raise HTTPException(status_code=404, detail="Product not found")
 
     comparison = build_comparison(row["price_jpy"], row["price_twd"], rate)
+    urls = build_product_urls(row["brand"], row["uniqlo_product_id"])
     return {
         "id": row["id"],
+        "brand": row["brand"],
         "uniqlo_product_id": row["uniqlo_product_id"],
         "name_jp": row["name_jp"],
         "name_tw": row["name_tw"],
@@ -270,12 +286,6 @@ async def get_product(product_id: int):
         "image_url": row["image_url"],
         "colors": parse_colors(row["colors"]),
         "sizes": row["sizes"],
-        "jp_url": f"https://www.uniqlo.com/jp/ja/products/{row['uniqlo_product_id']}/",
-        "tw_url": f"https://www.uniqlo.com/tw/product-detail.html?productCode={row['uniqlo_product_id']}",
         **comparison,
+        **urls,
     }
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}

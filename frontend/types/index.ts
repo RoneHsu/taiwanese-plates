@@ -5,6 +5,7 @@ export interface ProductColor {
 
 export interface Product {
   id: number
+  brand: string
   uniqlo_product_id: string
   name_jp: string
   name_tw: string
