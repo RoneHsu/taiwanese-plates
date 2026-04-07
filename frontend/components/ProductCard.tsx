@@ -13,6 +13,12 @@ export default function ProductCard({ product, rate }: Props) {
   const diffAbs = Math.abs(product.diff_twd)
   const diffPctAbs = Math.abs(product.diff_pct)
 
+  // 退稅後價格（日本消費稅 10%）
+  const jpTaxFreeJpy = Math.round(product.jp_price_jpy / 1.1)
+  const jpTaxFreeTwd = Math.round(jpTaxFreeJpy * rate)
+  const taxFreeDiffTwd = product.tw_price_twd - jpTaxFreeTwd
+  const taxFreeDiffPct = Math.round(Math.abs(taxFreeDiffTwd) / jpTaxFreeTwd * 100)
+
   return (
     <Link href={`/products/${product.id}`}>
       <div className="bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all p-4 cursor-pointer h-full flex flex-col">
@@ -71,7 +77,10 @@ export default function ProductCard({ product, rate }: Props) {
               {product.colors.slice(0, 6).map(c => (
                 <img
                   key={c.code}
-                  src={`https://image.uniqlo.com/UQ/ST3/jp/imagesgoods/${product.uniqlo_product_id}/item/jpgoods_${c.code}_${product.uniqlo_product_id}_3x4.jpg`}
+                  src={product.brand === "gu"
+                    ? `https://image.uniqlo.com/GU/ST3/AsianCommon/imagesgoods/${product.uniqlo_product_id}/item/goods_${c.code}_${product.uniqlo_product_id}_3x4.jpg`
+                    : `https://image.uniqlo.com/UQ/ST3/jp/imagesgoods/${product.uniqlo_product_id}/item/jpgoods_${c.code}_${product.uniqlo_product_id}_3x4.jpg`
+                  }
                   alt={c.name}
                   title={c.name}
                   className="w-6 h-6 rounded-sm object-cover border border-gray-200"
@@ -89,29 +98,29 @@ export default function ProductCard({ product, rate }: Props) {
         <div className="mt-auto space-y-1">
           <div className="flex justify-between text-sm">
             <span className="text-gray-700">🇯🇵 日本</span>
-            <span className="font-bold text-gray-900">
-              ¥{product.jp_price_jpy.toLocaleString()}
-              <span className="text-gray-500 text-xs ml-1">
-                (≈ NT${product.jp_price_twd.toLocaleString()})
-              </span>
-            </span>
+            <div className="text-right">
+              <span className="font-bold text-gray-900">¥{product.jp_price_jpy.toLocaleString()}</span>
+              <span className="text-gray-500 text-xs ml-1">(≈ NT${product.jp_price_twd.toLocaleString()})</span>
+            </div>
+          </div>
+          <div className="flex justify-between text-xs text-gray-400">
+            <span>退稅後</span>
+            <span>¥{jpTaxFreeJpy.toLocaleString()} (≈ NT${jpTaxFreeTwd.toLocaleString()})</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-700">🇹🇼 台灣</span>
-            <span className="font-bold text-gray-900">
-              NT${product.tw_price_twd.toLocaleString()}
-            </span>
+            <span className="font-bold text-gray-900">NT${product.tw_price_twd.toLocaleString()}</span>
           </div>
 
-          {/* Badge */}
+          {/* Badge — 以退稅後價格計算 */}
           <div className="pt-2">
-            {isCheaperInJapan ? (
+            {taxFreeDiffTwd > 0 ? (
               <span className="inline-block bg-red-50 text-red-600 text-xs font-medium px-2 py-1 rounded-full">
-                台灣貴 {diffPctAbs}% (+NT${diffAbs.toLocaleString()})
+                退稅後台灣貴 {taxFreeDiffPct}% (+NT${taxFreeDiffTwd.toLocaleString()})
               </span>
             ) : (
               <span className="inline-block bg-green-50 text-green-600 text-xs font-medium px-2 py-1 rounded-full">
-                日本貴 {diffPctAbs}% (+NT${diffAbs.toLocaleString()})
+                退稅後日本貴 {taxFreeDiffPct}% (+NT${Math.abs(taxFreeDiffTwd).toLocaleString()})
               </span>
             )}
           </div>

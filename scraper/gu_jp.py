@@ -87,6 +87,14 @@ def normalize_gu_jp(item: dict, gender: str) -> dict:
 
     product_id = str(item.get("l1Id", ""))
 
+    # Extract colors: use displayCode (matches images.main keys) and name
+    raw_colors = item.get("colors") or []
+    colors_str = "/".join(
+        f"{c['displayCode']}:{c['name']}"
+        for c in raw_colors
+        if c.get("displayCode") and c.get("name")
+    ) or None
+
     # Get image from API response; fall back to constructing CDN URL
     images_main = item.get("images", {}).get("main", {})
     first_color_key = next(iter(images_main), None)
@@ -108,6 +116,7 @@ def normalize_gu_jp(item: dict, gender: str) -> dict:
         "name_jp": item.get("name", ""),
         "category": gender,
         "image_url": image_url,
+        "colors": colors_str,
         "region": "JP",
         "price": promo.get("value") or base.get("value"),
         "currency": "JPY",

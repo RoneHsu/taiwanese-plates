@@ -1,11 +1,13 @@
 """
 Main scraper entry point.
-Scrapes Uniqlo JP, Uniqlo TW, GU JP, and GU TW; stores results in PostgreSQL.
+Scrapes Uniqlo JP, Uniqlo TW, GU JP, GU TW, New Balance JP, and New Balance TW;
+stores results in PostgreSQL.
 
 Usage:
-    python main.py           # scrape all brands
-    python main.py uniqlo    # scrape Uniqlo only
-    python main.py gu        # scrape GU only
+    python main.py                # scrape all brands
+    python main.py uniqlo         # scrape Uniqlo only
+    python main.py gu             # scrape GU only
+    python main.py newbalance     # scrape New Balance only
 """
 
 import asyncio
@@ -19,6 +21,8 @@ from uniqlo_jp import scrape_all_jp, fetch_jp_product_by_id
 from uniqlo_tw import scrape_all_tw
 from gu_jp import scrape_all_gu_jp
 from gu_tw import scrape_all_gu_tw
+from newbalance_jp import scrape_all_newbalance_jp
+from newbalance_tw import scrape_all_newbalance_tw
 
 load_dotenv()
 
@@ -30,15 +34,16 @@ async def upsert_product(conn: asyncpg.Connection, product: dict) -> int:
 
     if region == "JP":
         row = await conn.fetchrow("""
-            INSERT INTO products (brand, uniqlo_product_id, name_jp, category, image_url)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO products (brand, uniqlo_product_id, name_jp, category, image_url, colors)
+            VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (brand, uniqlo_product_id) DO UPDATE
                 SET name_jp = EXCLUDED.name_jp,
                     image_url = COALESCE(EXCLUDED.image_url, products.image_url),
+                    colors = COALESCE(EXCLUDED.colors, products.colors),
                     updated_at = NOW()
             RETURNING id
         """, brand, product["uniqlo_product_id"], product["name_jp"],
-             product["category"], product["image_url"])
+             product["category"], product["image_url"], product.get("colors"))
     else:
         row = await conn.fetchrow("""
             INSERT INTO products (brand, uniqlo_product_id, name_tw, category, image_url, colors, sizes)
@@ -116,6 +121,30 @@ async def scrape_gu_tw(conn: asyncpg.Connection):
     print(f"[GU TW] Done. {count} products saved.")
 
 
+async def scrape_newbalance_jp(conn: asyncpg.Connection):
+    print("\n=== Scraping New Balance Japan ===")
+    count = 0
+    async for product in scrape_all_newbalance_jp():
+        if not product["uniqlo_product_id"] or not product["price"]:
+            continue
+        product_id = await upsert_product(conn, product)
+        await insert_price(conn, product_id, product)
+        count += 1
+    print(f"[NB JP] Done. {count} products saved.")
+
+
+async def scrape_newbalance_tw(conn: asyncpg.Connection):
+    print("\n=== Scraping New Balance Taiwan ===")
+    count = 0
+    async for product in scrape_all_newbalance_tw():
+        if not product["uniqlo_product_id"] or not product["price"]:
+            continue
+        product_id = await upsert_product(conn, product)
+        await insert_price(conn, product_id, product)
+        count += 1
+    print(f"[NB TW] Done. {count} products saved.")
+
+
 async def lookup_missing_jp(conn: asyncpg.Connection):
     """For Uniqlo TW-only products, query JP API directly by product ID."""
     print("\n=== Looking up Uniqlo TW-only products in JP API ===")
@@ -173,6 +202,10 @@ async def main():
         if target in ("all", "gu"):
             await scrape_gu_jp(conn)
             await scrape_gu_tw(conn)
+
+        if target in ("all", "newbalance"):
+            await scrape_newbalance_jp(conn)
+            await scrape_newbalance_tw(conn)
     finally:
         await conn.close()
 

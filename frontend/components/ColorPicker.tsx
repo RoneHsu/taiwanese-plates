@@ -6,13 +6,18 @@ import { toChineseColor } from "@/lib/colorNames"
 
 interface Props {
   productId: string
+  brand: string
   colors: ProductColor[]
   initialImageUrl: string | null
 }
 
-export default function ColorPicker({ productId, colors, initialImageUrl }: Props) {
-  const buildImageUrl = (code: string) =>
-    `https://image.uniqlo.com/UQ/ST3/jp/imagesgoods/${productId}/item/jpgoods_${code}_${productId}_3x4.jpg`
+export default function ColorPicker({ productId, brand, colors, initialImageUrl }: Props) {
+  const buildImageUrl = (code: string) => {
+    if (brand === "gu") {
+      return `https://image.uniqlo.com/GU/ST3/AsianCommon/imagesgoods/${productId}/item/goods_${code}_${productId}_3x4.jpg`
+    }
+    return `https://image.uniqlo.com/UQ/ST3/jp/imagesgoods/${productId}/item/jpgoods_${code}_${productId}_3x4.jpg`
+  }
 
   const [selectedCode, setSelectedCode] = useState<string | null>(colors[0]?.code ?? null)
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(

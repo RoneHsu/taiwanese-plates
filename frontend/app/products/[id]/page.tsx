@@ -1,6 +1,6 @@
 import { getProduct, getExchangeRate } from "@/lib/api"
-import Link from "next/link"
 import ColorPicker from "@/components/ColorPicker"
+import BackButton from "@/components/BackButton"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -13,15 +13,18 @@ export default async function ProductPage({ params }: Props) {
     getExchangeRate(),
   ])
 
-  const isCheaperInJapan = product.diff_twd > 0
+  const rate = rateRes.rate
+  const jpTaxFreeJpy = Math.round(product.jp_price_jpy / 1.1)
+  const jpTaxFreeTwd = Math.round(jpTaxFreeJpy * rate)
+  const taxFreeDiffTwd = product.tw_price_twd - jpTaxFreeTwd
+  const taxFreeDiffPct = Math.round(Math.abs(taxFreeDiffTwd) / jpTaxFreeTwd * 100)
+  const isCheaperInJapan = taxFreeDiffTwd > 0
 
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href="/" className="text-blue-600 text-sm hover:underline">
-            ← 返回列表
-          </Link>
+          <BackButton />
           <span className="text-gray-300">|</span>
           <span className="text-lg font-bold text-gray-900">Taiwanese Plates</span>
         </div>
@@ -34,6 +37,7 @@ export default async function ProductPage({ params }: Props) {
             {product.colors && product.colors.length > 0 ? (
               <ColorPicker
                 productId={product.uniqlo_product_id}
+                brand={product.brand}
                 colors={product.colors}
                 initialImageUrl={product.image_url}
               />
@@ -100,8 +104,16 @@ export default async function ProductPage({ params }: Props) {
                 <div className="text-right">
                   <p className="font-bold text-lg text-gray-900">¥{product.jp_price_jpy.toLocaleString()}</p>
                   <p className="text-xs text-gray-400">
-                    ≈ NT${product.jp_price_twd.toLocaleString()}（匯率 {rateRes.rate.toFixed(4)}）
+                    ≈ NT${product.jp_price_twd.toLocaleString()}（匯率 {rate.toFixed(4)}）
                   </p>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center py-1 border-b border-gray-200">
+                <span className="text-gray-400 text-sm">退稅後（-10%）</span>
+                <div className="text-right">
+                  <p className="font-semibold text-gray-700">¥{jpTaxFreeJpy.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400">≈ NT${jpTaxFreeTwd.toLocaleString()}</p>
                 </div>
               </div>
 
@@ -110,19 +122,30 @@ export default async function ProductPage({ params }: Props) {
                 <p className="font-bold text-lg text-gray-900">NT${product.tw_price_twd.toLocaleString()}</p>
               </div>
 
-              <div className={`flex justify-between items-center py-2 rounded-lg px-3 ${
+              <div className={`py-2 rounded-lg px-3 space-y-1 ${
                 isCheaperInJapan ? "bg-red-50" : "bg-green-50"
               }`}>
-                <span className="font-semibold text-gray-700">差異</span>
-                <div className="text-right">
-                  <p className={`font-bold text-lg ${isCheaperInJapan ? "text-red-600" : "text-green-600"}`}>
-                    {isCheaperInJapan ? "+" : "-"}NT${Math.abs(product.diff_twd).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {isCheaperInJapan
-                      ? `台灣貴 ${product.diff_pct}%`
-                      : `日本貴 ${Math.abs(product.diff_pct)}%`}
-                  </p>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-700">差異（含稅）</span>
+                  <div className="text-right">
+                    <p className={`font-bold ${isCheaperInJapan ? "text-red-600" : "text-green-600"}`}>
+                      {product.diff_twd > 0 ? "+" : "-"}NT${Math.abs(product.diff_twd).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {product.diff_twd > 0 ? `台灣貴 ${product.diff_pct}%` : `日本貴 ${Math.abs(product.diff_pct)}%`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center border-t border-black/5 pt-1">
+                  <span className="font-semibold text-gray-700">差異（退稅後）</span>
+                  <div className="text-right">
+                    <p className={`font-bold text-lg ${isCheaperInJapan ? "text-red-600" : "text-green-600"}`}>
+                      {taxFreeDiffTwd > 0 ? "+" : "-"}NT${Math.abs(taxFreeDiffTwd).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {isCheaperInJapan ? `台灣貴 ${taxFreeDiffPct}%` : `日本貴 ${taxFreeDiffPct}%`}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

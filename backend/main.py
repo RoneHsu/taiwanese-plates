@@ -15,8 +15,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-
 app = FastAPI(title="Compare Money API", version="1.0.0")
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -33,13 +31,14 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
+    database_url = os.getenv("DATABASE_URL")
     use_ssl = os.getenv("DATABASE_SSL", "false").lower() == "true"
     ssl_ctx = None
     if use_ssl:
         ssl_ctx = ssl.create_default_context()
         ssl_ctx.check_hostname = False
         ssl_ctx.verify_mode = ssl.CERT_NONE
-    app.state.pool = await asyncpg.create_pool(DATABASE_URL, ssl=ssl_ctx, min_size=1, max_size=10, statement_cache_size=0)
+    app.state.pool = await asyncpg.create_pool(database_url, ssl=ssl_ctx, min_size=1, max_size=10, statement_cache_size=0)
 
 
 @app.on_event("shutdown")
@@ -117,6 +116,11 @@ def build_product_urls(brand: str, product_id: str) -> dict:
         return {
             "jp_url": f"https://www.gu-global.com/jp/ja/products/{product_id}/",
             "tw_url": f"https://www.gu-global.com/tw/zh_TW/products/{product_id}/",
+        }
+    if brand == "newbalance":
+        return {
+            "jp_url": f"https://shop.newbalance.jp/search?q={product_id}",
+            "tw_url": f"https://www.newbalance.com.tw/search?q={product_id}",
         }
     return {
         "jp_url": f"https://www.uniqlo.com/jp/ja/products/{product_id}/",
